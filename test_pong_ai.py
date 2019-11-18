@@ -9,6 +9,7 @@ import gym
 import numpy as np
 import argparse
 import wimblepong
+from wimblepong.agent import Agent
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--headless", action="store_true", help="Run in headless mode")
@@ -28,7 +29,8 @@ episodes = 100000
 # Define the player
 player_id = 1
 # Set up the player here. We used the SimpleAI that does not take actions for now
-player = wimblepong.SimpleAi(env, player_id)
+#player = wimblepong.SimpleAi(env, player_id)
+player = Agent(env, player_id)
 
 # Housekeeping
 states = []
@@ -38,7 +40,7 @@ for i in range(0,episodes):
     done = False
     while not done:
         # action1 is zero because in this example no agent is playing as player 0
-        action1 = 0 #player.get_action()
+        action1 = player.get_action()
         ob1, rew1, done, info = env.step(action1)
         if args.housekeeping:
             states.append(ob1)

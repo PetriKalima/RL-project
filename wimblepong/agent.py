@@ -70,7 +70,7 @@ class Agent(object):
                 action = self.env.MOVE_UP  # Up
             else:
                 action = self.env.MOVE_DOWN  # Down
-
+        
         return action
 
 
