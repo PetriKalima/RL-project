@@ -31,12 +31,17 @@ class Agent(object):
         if type(env) is not Wimblepong:
             raise TypeError("I'm not a very smart AI. All I can play is Wimblepong.")
         self.env = env
+        self.reset()
         # Set the player id that determines on which side the ai is going to play
         self.player_id = player_id  
         # Ball prediction error, introduce noise such that SimpleAI reflects not
         # only in straight lines
         self.bpe = 4                
         self.name = "DQN.AI"
+
+    def reset(self):
+        self.state = self.env.reset()
+
 
     def get_name(self):
         """
@@ -68,13 +73,10 @@ class Agent(object):
 
         return action
 
-    def reset(self):
-        # Nothing to done for now...
-        return
 
-
-    def load_model(self):
-        # Nothing to done for now...
+    def load_model(self, modelfile):
+        print("Loading model from file", modelfile)
+        state_dict = torch.load(modelfile)
         return
  
 
