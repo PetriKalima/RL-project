@@ -19,7 +19,7 @@ parser.add_argument("--scale", type=int, help="Scale of the rendered game", defa
 args = parser.parse_args()
 
 # Make the environment
-env = gym.make("WimblepongSimpleAI-v0")
+env = gym.make("WimblepongVisualSimpleAI-v0")
 env.unwrapped.scale = args.scale
 env.unwrapped.fps = args.fps
 
@@ -40,6 +40,7 @@ for i in range(0,episodes):
     done = False
     while not done:
         # action1 is zero because in this example no agent is playing as player 0
+        #action1 = 0
         action1 = player.get_action()
         ob1, rew1, done, info = env.step(action1)
         if args.housekeeping:

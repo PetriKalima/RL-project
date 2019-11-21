@@ -11,11 +11,22 @@ class DQN(nn.Module):
     def __init__(self, state_space_dim, action_space_dim, hidden=12):
         super(DQN, self).__init__()
         self.hidden = hidden
-        self.conv1 = nn.Conv2d(state_space_dim, 32, kernel_size=8, stride=4)
+        self.conv1 = nn.Conv2d(state_space_dim[2], 32, kernel_size=8, stride=4)
         self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
         self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
-        #self.fc1 = nn.Linear(state_space_dim, hidden)
-        #self.fc2 = nn.Linear(hidden, action_space_dim)
+        convDim = self.getConvDim(state_space_dim)
+        self.fc1 = nn.Linear(convDim, 400)
+        self.fc2 = nn.Linear(400, action_space_dim)
+
+    def getConvDim(self, shape):
+        testinput = torch.zeros(1, shape[2], shape[0], shape[1])
+        x = self.conv1(testinput)
+        x = F.relu(x)
+        x = self.conv2(x)
+        x = F.relu(x)
+        convOut = self.conv3(x)
+        F.relu(x)
+        return int(np.prod(convOut.size()))
 
     def forward(self, x):
         x = self.conv1(x)
@@ -24,6 +35,10 @@ class DQN(nn.Module):
         x = F.relu(x)
         x = self.conv3(x)
         x = F.relu(x)
+        x = x.view(x.size()[0], -1)
+        x = self.fc1(x)
+        x = F.relu(x)
+        x = self.fc2(x)
         return x
 
 class Agent(object):
@@ -33,15 +48,16 @@ class Agent(object):
         self.env = env
         self.reset()
         # Set the player id that determines on which side the ai is going to play
-        self.player_id = player_id  
-        # Ball prediction error, introduce noise such that SimpleAI reflects not
-        # only in straight lines
-        self.bpe = 4                
+        self.player_id = player_id
+        #self.train_device = "cuda"
+        self.train_device = "cpu"                  
         self.name = "DQN.AI"
+        self.DQN = DQN(self.env.observation_space.shape, 3).to(self.train_device)
+        self.epsilon = 0.05
+        self.n_actions = 3 #maybe change to env size
 
     def reset(self):
         self.state = self.env.reset()
-
 
     def get_name(self):
         """
@@ -54,29 +70,36 @@ class Agent(object):
         Interface function that returns the action that the agent took based
         on the observation ob
         """
-        # Get the player id from the environmen
-        player = self.env.player1 if self.player_id == 1 else self.env.player2
-        # Get own position in the game arena
-        my_y = player.y
-        # Get the ball position in the game arena
-        ball_y = self.env.ball.y + (random.random()*self.bpe-self.bpe/2)
-
-        # Compute the difference in position and try to minimize it
-        y_diff = my_y - ball_y
-        if abs(y_diff) < 2:
-            action = 0  # Stay
+        sample = random.random()
+        if sample > self.epsilon:
+            with torch.no_grad():
+                #x = self.preprocess(ob).to(self.train_device)
+                #print(self.state.shape)
+                state = torch.from_numpy(self.state).float()
+                state = state.view(1,self.state.shape[2], self.state.shape[0], self.state.shape[1])
+                #print(state.shape)
+                q_values = self.DQN.forward(state)
+                print(q_values)
+                action = torch.argmax(q_values).item()
+                return action
         else:
-            if y_diff > 0:
-                action = self.env.MOVE_UP  # Up
-            else:
-                action = self.env.MOVE_DOWN  # Down
-        
-        return action
+            return random.randrange(self.n_actions)
 
 
     def load_model(self, modelfile):
         print("Loading model from file", modelfile)
         state_dict = torch.load(modelfile)
         return
+
+    def preprocess(self, observation):
+        observation = observation[::2, ::2].mean(axis=-1)
+        observation = np.expand_dims(observation, axis=-1)
+        if self.prev_obs is None:
+            self.prev_obs = observation
+        stack_ob = np.concatenate((self.prev_obs, observation), axis=-1)
+        stack_ob = torch.from_numpy(stack_ob).float().unsqueeze(0)
+        stack_ob = stack_ob.transpose(1, 3)
+        self.prev_obs = observation
+        return stack_ob    
  
 
