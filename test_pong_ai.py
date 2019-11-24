@@ -16,6 +16,7 @@ parser.add_argument("--headless", action="store_true", help="Run in headless mod
 parser.add_argument("--housekeeping", action="store_true", help="Plot, player and ball positions and velocities at the end of each episode")
 parser.add_argument("--fps", type=int, help="FPS for rendering", default=30)
 parser.add_argument("--scale", type=int, help="Scale of the rendered game", default=1)
+parser.add_argument("-m", "--model", help="Model file to load")
 args = parser.parse_args()
 
 # Make the environment
@@ -36,13 +37,21 @@ player = Agent(env, player_id)
 states = []
 win1 = 0
 
+if args.model:
+    player.load_model(args.model)
 for i in range(0,episodes):
     done = False
+    player.reset()
+    #player.epsilon = 250/(500+i)
     while not done:
         # action1 is zero because in this example no agent is playing as player 0
         #action1 = 0
         action1 = player.get_action()
         ob1, rew1, done, info = env.step(action1)
+        player.store_transition(player.state, action1, ob1, rew1, done)
+        player.state = ob1
+        if i % 10 == 0:
+            player.update_network()
         if args.housekeeping:
             states.append(ob1)
         # Count the wins
@@ -61,4 +70,6 @@ for i in range(0,episodes):
             print("episode {} over. Broken WR: {:.3f}".format(i, win1/(i+1)))
             if i % 5 == 4:
                 env.switch_sides()
+    if i % 50 == 0:
+        player.save_model()            
 

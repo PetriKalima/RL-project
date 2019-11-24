@@ -3,7 +3,8 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-
+import collections
+from collections import namedtuple
 from wimblepong import Wimblepong
 import random
 
@@ -41,6 +42,28 @@ class DQN(nn.Module):
         x = self.fc2(x)
         return x
 
+Transition = namedtuple('Transition',
+                        ('state', 'action', 'next_state', 'reward', 'done'))
+
+class ReplayMemory(object):
+    def __init__(self, capacity):
+        self.capacity = capacity
+        self.memory = []
+        self.position = 0
+
+    def push(self, *args):
+        """Saves a transition."""
+        if len(self.memory) < self.capacity:
+            self.memory.append(None)
+        self.memory[self.position] = Transition(*args)
+        self.position = (self.position + 1) % self.capacity
+
+    def sample(self, batch_size):
+        return random.sample(self.memory, batch_size)
+
+    def __len__(self):
+        return len(self.memory)
+        
 class Agent(object):
     def __init__(self, env, player_id=1):
         if type(env) is not Wimblepong:
@@ -53,8 +76,13 @@ class Agent(object):
         self.train_device = "cpu"                  
         self.name = "DQN.AI"
         self.DQN = DQN(self.env.observation_space.shape, 3).to(self.train_device)
+        self.target_net = DQN(self.env.observation_space.shape, 3).to(self.train_device)
         self.epsilon = 0.05
         self.n_actions = 3 #maybe change to env size
+        self.optimizer = optim.RMSprop(self.DQN.parameters(), lr=1e-2)
+        self.memory = ReplayMemory(100000)
+        self.batch_size = 32
+        self.gamma = 0.99
 
     def reset(self):
         self.state = self.env.reset()
@@ -75,20 +103,59 @@ class Agent(object):
             with torch.no_grad():
                 #x = self.preprocess(ob).to(self.train_device)
                 #print(self.state.shape)
-                state = torch.from_numpy(self.state).float()
+                state = torch.from_numpy(np.ascontiguousarray(self.state)).float()
                 state = state.view(1,self.state.shape[2], self.state.shape[0], self.state.shape[1])
                 #print(state.shape)
                 q_values = self.DQN.forward(state)
-                print(q_values)
+                #print(q_values)
                 action = torch.argmax(q_values).item()
+                #print(action)
                 return action
         else:
             return random.randrange(self.n_actions)
 
+    def store_transition(self, state, action, next_state, reward, done):
+        action = torch.Tensor([[action]]).long()
+        reward = torch.tensor([reward], dtype=torch.float32)
+        next_state = torch.from_numpy(np.ascontiguousarray(next_state)).float()
+        state = torch.from_numpy(np.ascontiguousarray(state)).float()
+        self.memory.push(state, action, next_state, reward, done)
+
+    def calculate_loss(self, sample):
+        batch = Transition(*zip(*sample))
+        states = torch.stack(batch.state)
+        actions = torch.cat(batch.action)
+        rewards = torch.cat(batch.reward)
+        non_final_mask = 1-torch.tensor(batch.done, dtype=torch.uint8)
+        non_final_next_states = [s for nonfinal,s in zip(non_final_mask,
+                                     batch.next_state) if nonfinal > 0]
+        non_final_next_states = torch.stack(non_final_next_states)
+        states = states.view(32, 3, 200, 200)
+        non_final_next_states = non_final_next_states.view(non_final_next_states.shape[0], 3, 200, 200)
+        state_action_values = self.DQN(states).gather(1, actions)
+        next_state_values = torch.zeros(self.batch_size)
+        next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
+        expected_values = next_state_values * self.gamma + rewards
+        #print(rewards, expected_values, state_action_values)
+        return nn.MSELoss()(state_action_values, expected_values)
+
+
+    def update_network(self):
+        if len(self.memory) < self.batch_size:
+            return
+        self.optimizer.zero_grad()
+        sample = self.memory.sample(self.batch_size)
+        loss = self.calculate_loss(sample)
+        loss.backward()
+        self.optimizer.step()
+
+    def save_model(self):
+        torch.save(self.DQN.state_dict(), "model.mdl")
 
     def load_model(self, modelfile):
-        print("Loading model from file", modelfile)
-        state_dict = torch.load(modelfile)
+        print("Loading model from file ", modelfile)
+        self.DQN.load_state_dict(torch.load(modelfile, map_location=lambda storage, loc: storage))
+        self.target_net.load_state_dict(self.DQN.state_dict())
         return
 
     def preprocess(self, observation):
