@@ -32,7 +32,7 @@ env.unwrapped.fps = args.fps
 
 # Number of episodes/games to play
 episodes = 100000
-TARGET_UPDATE_FREQ=1000  #hua
+TARGET_UPDATE_FREQ=100  #hua
 
 # Define the player
 player_id = 1
@@ -57,8 +57,6 @@ for i in range(0,episodes):
         ob1, rew1, done, info = env.step(action1)
         player.store_transition(player.state, action1, ob1, rew1, done)
         player.state = ob1
-        if i % 10 == 0:
-            player.update_network()
         if args.housekeeping:
             states.append(ob1)
         # Count the wins
@@ -77,6 +75,8 @@ for i in range(0,episodes):
             print("episode {} over. Broken WR: {:.3f}".format(i, win1/(i+1)))
             if i % 5 == 4:
                 env.switch_sides()
+    if i % 10 == 0:
+        player.update_network()            
     if i % TARGET_UPDATE_FREQ == 0:
         player.target_net.load_state_dict(player.policy_net.state_dict())
     if i % 50 == 0:
