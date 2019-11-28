@@ -107,19 +107,18 @@ class Agent(object):
         Interface function that returns the action that the agent took based
         on the observation ob
         """
+        if ob == None:
+            state = self.preprocess(self.state).to(self.train_device)
+        else:
+            state = ob
         sample = random.random()
         if sample > self.epsilon:
             with torch.no_grad():
                 #x = self.preprocess(ob).to(self.train_device)
                 #print(self.state.shape)
-                state = self.preprocess(self.state).to(self.train_device)   #hua "Here"
-                #state = torch.from_numpy(np.ascontiguousarray(self.state)).float() #hua
-                #state = state.view(1,self.state.shape[2], self.state.shape[0], self.state.shape[1]) #hua
-                #print("here, state shape:",state.shape)
+                #state = self.preprocess(self.state).to(self.train_device)   #hua "Here"
                 q_values = self.policy_net.forward(state)
-                #print(q_values)
                 action = torch.argmax(q_values).item()
-                #print(action)
                 return action
         else:
             return random.randrange(self.n_actions)
@@ -153,10 +152,11 @@ class Agent(object):
         states = states.view(32, 2, 100, 100)
         #states = states.view(32, 3, 200, 200)
         non_final_next_states = non_final_next_states.view(non_final_next_states.shape[0], 2, 100, 100)
+        action = self.get_action(ob=non_final_next_states)
         state_action_values = self.policy_net(states).gather(1, actions)
         #print("asd", state_action_values)
         next_state_values = torch.zeros(self.batch_size)
-        next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
+        next_state_values[non_final_mask] = self.target_net(non_final_next_states)[action][0].detach()
         #print(next_state_values)
         expected_values = next_state_values * self.gamma + rewards
         #print(expected_values)
@@ -192,13 +192,13 @@ class Agent(object):
         self.optimizer.step()
 
     def save_model(self):
-        torch.save(self.policy_net.state_dict(), "modelhua26.mdl")
+        torch.save(self.policy_net.state_dict(), "modelddqn.mdl")
 
     def load_model(self, modelfile):
         print("Loading model from file ", modelfile)
         self.policy_net.load_state_dict(torch.load(modelfile, map_location=lambda storage, loc: storage))
         self.target_net.load_state_dict(self.policy_net.state_dict())
-        self.epsilon = 0.1
+        self.epsilon = 0.02
         return
 
     def preprocess(self, observation):

@@ -9,7 +9,7 @@ import gym
 import numpy as np
 import argparse
 import wimblepong
-from wimblepong.agenthua26 import Agent
+from wimblepong.ddqnagent import Agent
 import torch
 
 parser = argparse.ArgumentParser()
@@ -32,7 +32,7 @@ env.unwrapped.fps = args.fps
 
 # Number of episodes/games to play
 episodes = 100000
-TARGET_UPDATE_FREQ=40000  #hua
+TARGET_UPDATE_FREQ=10000  #hua
 LEARNING_STARTS = 50000
 
 # Define the player
