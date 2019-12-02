@@ -31,9 +31,11 @@ env.unwrapped.scale = args.scale
 env.unwrapped.fps = args.fps
 
 # Number of episodes/games to play
-episodes = 100000
+#episodes = 100000
+episodes = 1000000
 TARGET_UPDATE_FREQ=40000  #hua
 LEARNING_STARTS = 50000
+#LEARNING_STARTS = 2000
 
 # Define the player
 player_id = 1
@@ -56,9 +58,9 @@ for i in range(0,episodes):
         # action1 is zero because in this example no agent is playing as player 0
         #action1 = 0
         step += 1
-        if step % 1000 == 0:
-            print(step)
-        player.epsilon = max(0.1, 1 - step / 100000)
+        #if step % 1000 == 0:
+           # print(step)
+        player.epsilon = max(0.1, 1 - step / 1000000)
         action1 = player.get_action()
         ob1, rew1, done, info = env.step(action1)
         player.store_transition(player.state, action1, ob1, rew1, done)

@@ -7,6 +7,10 @@ import collections
 from collections import namedtuple
 from wimblepong import Wimblepong
 import random
+import warnings
+warnings.filterwarnings("ignore", category=FutureWarning)
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 class DQN(nn.Module):
     def __init__(self, action_space_dim, hidden=12):
@@ -16,7 +20,7 @@ class DQN(nn.Module):
         self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=2)
         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=2)
         convDim = self.getConvDim()
-        self.fc1 = nn.Linear(convDim, 64)
+        self.fc1 = nn.Linear(convDim, 64) #256
         self.fc2 = nn.Linear(64, action_space_dim)
 
     def getConvDim(self):
@@ -108,7 +112,7 @@ class Agent(object):
         on the observation ob
         """
         sample = random.random()
-        if sample > self.epsilon:
+        if sample < self.epsilon:
             with torch.no_grad():
                 #x = self.preprocess(ob).to(self.train_device)
                 #print(self.state.shape)
@@ -147,6 +151,7 @@ class Agent(object):
         rewards = torch.cat(batch.reward)
         #print(rewards)
         non_final_mask = 1-torch.tensor(batch.done, dtype=torch.uint8)# need to change to boolean?
+        #non_final_mask = torch.logical_not(torch.cat(batch.done))
         non_final_next_states = [s for nonfinal,s in zip(non_final_mask,
                                      batch.next_state) if nonfinal > 0]
         non_final_next_states = torch.stack(non_final_next_states)
