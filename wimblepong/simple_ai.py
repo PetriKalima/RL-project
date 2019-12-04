@@ -25,6 +25,7 @@ class SimpleAi(object):
         Interface function that returns the action that the agent took based
         on the observation ob
         """
+        
         # Get the player id from the environmen
         player = self.env.player1 if self.player_id == 1 else self.env.player2
         # Get own position in the game arena
@@ -34,7 +35,8 @@ class SimpleAi(object):
 
         # Compute the difference in position and try to minimize it
         y_diff = my_y - ball_y
-        if abs(y_diff) < 2:
+        p = random.uniform(0, 1)
+        if abs(y_diff) < 2 or p > 0.5:
             action = 0  # Stay
         else:
             if y_diff > 0:
@@ -43,6 +45,9 @@ class SimpleAi(object):
                 action = self.env.MOVE_DOWN  # Down
 
         return action
+        
+        #action = random.randrange(3)
+        #return action    
 
     def reset(self):
         # Nothing to done for now...

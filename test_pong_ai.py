@@ -88,8 +88,8 @@ for i in range(0,episodes):
             win1 += 1
         if step % 500 == 0:
             print("mean reward: ", np.mean(rewards[-500:]))    
-        #if not args.headless:
-        if step > 60000:
+        if not args.headless:
+        #if step > 60000:
             env.render()
         if done:
             observation= env.reset()
