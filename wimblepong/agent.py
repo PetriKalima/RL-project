@@ -13,15 +13,23 @@ warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 class DQN(nn.Module):
-    def __init__(self, action_space_dim, hidden=12):
+    def __init__(self, state_space_dim, action_space_dim, hidden=512):
         super(DQN, self).__init__()
-        self.hidden = hidden
-        self.conv1 = nn.Conv2d(2, 32, kernel_size=3, stride=2)
-        self.conv2 = nn.Conv2d(32, 64, kernel_size=3, stride=2)
-        self.conv3 = nn.Conv2d(64, 128, kernel_size=3, stride=2)
+        self.conv1 = nn.Conv2d(2, 32, kernel_size=8, stride=4)
+        self.conv2 = nn.Conv2d(32, 64, kernel_size=4, stride=2)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1)
         convDim = self.getConvDim()
-        self.fc1 = nn.Linear(convDim, 64) #256
-        self.fc2 = nn.Linear(64, action_space_dim)
+        self.fc1 = nn.Linear(convDim, hidden) #256
+        self.fc2 = nn.Linear(hidden, action_space_dim)
+        self.init_weights()
+
+    def init_weights(self):
+        for m in self.modules():
+            if type(m) is torch.nn.Linear:
+                torch.nn.init.uniform_(m.weight, 0, 1e-1)
+                torch.nn.init.zeros_(m.bias)
+            elif type(m) is torch.nn.Conv2d:
+                torch.nn.init.xavier_normal(m.weight)    
 
     def getConvDim(self):
         testinput = torch.zeros(1, 2, 100, 100)
@@ -69,7 +77,7 @@ class ReplayMemory(object):
         return len(self.memory)
         
 class Agent(object):
-    def __init__(self, env, player_id=1):
+    def __init__(self, env, state_space, player_id=1):
         if type(env) is not Wimblepong:
             raise TypeError("I'm not a very smart AI. All I can play is Wimblepong.")
         self.env = env
@@ -80,12 +88,12 @@ class Agent(object):
         #self.train_device = "cuda"
         self.train_device = "cpu"                  
         self.name = "DQN.AI"
-        self.policy_net = DQN(3).to(self.train_device) #hua
+        self.policy_net = DQN(state_space, 3).to(self.train_device) #hua
         #self.target_net = DQN(self.env.observation_space.shape, 3).to(self.train_device)
-        self.target_net = DQN(3).to(self.train_device) #hua
+        self.target_net = DQN(state_space, 3).to(self.train_device) #hua
         self.epsilon = 1.0  # may need to change
         self.n_actions = 3 #maybe change to env size
-        self.optimizer = optim.RMSprop(self.policy_net.parameters(), lr=0.00025)
+        self.optimizer = optim.Adam(self.policy_net.parameters(), lr=0.00025)
         self.memory = ReplayMemory(100000)
         self.batch_size = 32
         self.gamma = 0.99
@@ -112,7 +120,7 @@ class Agent(object):
         on the observation ob
         """
         sample = random.random()
-        if sample <= self.epsilon:
+        if sample >= self.epsilon:
             with torch.no_grad():
                 #x = self.preprocess(ob).to(self.train_device)
                 #print(self.state.shape)
@@ -162,7 +170,7 @@ class Agent(object):
         next_state_values = torch.zeros(self.batch_size)
         next_state_values[done] = self.target_net(non_final_next_states).max(1)[0].detach()
         '''
-        state_action_values = self.policy_net(states).gather(1, actions.long()).squeeze(-1)
+        state_action_values = self.policy_net(states).gather(1, actions.long()).unsqueeze(-1)
         next_state_values = self.target_net(next_states).max(1)[0]
         next_state_values[done] = 0.0
         next_state_values = next_state_values.detach()
@@ -194,7 +202,11 @@ class Agent(object):
         self.optimizer.zero_grad()
         sample = self.memory.sample(self.batch_size)
         loss = self.calculate_loss(sample)
+        #if self.epsilon < 0.2:
+        #    print(loss)
         loss.backward()
+        for param in self.policy_net.parameters():
+            param.grad.data.clamp_(-1, 1)
         self.optimizer.step()
 
     def save_model(self):

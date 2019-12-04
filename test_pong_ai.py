@@ -11,6 +11,7 @@ import argparse
 import wimblepong
 from wimblepong.agent import Agent
 import torch
+from time import sleep
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--headless", action="store_true", help="Run in headless mode")
@@ -33,21 +34,23 @@ env.unwrapped.fps = args.fps
 # Number of episodes/games to play
 #episodes = 100000
 episodes = 1000000
-TARGET_UPDATE_FREQ=10000  #hua
-LEARNING_STARTS = 60000
-#LEARNING_STARTS = 200
+TARGET_UPDATE_FREQ=1000  #hua
+LEARNING_STARTS = 59000
+#LEARNING_STARTS = 2000
 
 # Define the player
 player_id = 1
 # Set up the player here. We used the SimpleAI that does not take actions for now
 #player = wimblepong.SimpleAi(env, player_id)
-player = Agent(env, player_id)
+player = Agent(env, env.observation_space.shape[0], player_id)
 
 # Housekeeping
 states = []
 rewards = []
 win1 = 0
 step = 0
+ballhitreward = 5
+curPlayer = env.player1
 
 if args.model:
     player.load_model(args.model)
@@ -66,6 +69,15 @@ for i in range(0,episodes):
         if step == 1 or step % 2 == 0:
             action1 = player.get_action()
         ob1, rew1, done, info = env.step(action1)
+        if rew1 != 10 and rew1 != -10:
+            #print(env.ball.y, env.player1.y)
+            #sleep(1)
+            #print(env.ball.x, curPlayer.x)
+            #if curPlayer == env.player2:
+            #    sleep(1)
+            if env.ball.y < curPlayer.y + 14 and env.ball.y > curPlayer.y - 14 and abs(env.ball.x - curPlayer.x) < 10:
+                rew1 = ballhitreward 
+                #print(rew1)
         player.store_transition(player.state, action1, ob1, rew1, done)
         player.state = ob1
         rewards.append(rew1)
@@ -90,14 +102,18 @@ for i in range(0,episodes):
             print("episode {} over. Broken WR: {:.3f}".format(i, win1/(i+1)))
             if i % 5 == 4:
                 env.switch_sides()
+                if curPlayer == env.player1:
+                    curPlayer = env.player2
+                else:
+                    curPlayer = env.player1    
         if step < LEARNING_STARTS:
-            continue        
+            continue
+        if step % TARGET_UPDATE_FREQ == 0:
+            player.replace_targetpolicy()            
         if step % 4 == 0:
             player.update_network()
     #if i % 4 == 0:
     #    player.update_network()            
-        if step % TARGET_UPDATE_FREQ == 0:
-            player.replace_targetpolicy()
         #player.target_net.load_state_dict(player.policy_net.state_dict())
     if i % 50 == 0:
         player.save_model()            
