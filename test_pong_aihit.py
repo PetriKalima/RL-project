@@ -165,16 +165,21 @@ for i in range(0,episodes):
 
     print("rew1, cum_reward:", rew1,cum_reward)
     
+    if player.memory.__len__()<1000:
+        if (rew1 ==-10 and cum_reward>-10) or (rew1 ==10 and  cum_reward>10) :  # need to check startegy
+           for k in range(len(statesP)):
+              player.store_transition(statesP[k], actionsP[k], ob1sP[k], rew1sP[k], donesP[k])
+    else:   
     
-    if done and rew1 ==10 and flagwin_epoNotadded:  # need to check startegy
-       for k in range(len(statesP)):
-          player.store_transition(statesP[k], actionsP[k], ob1sP[k], rew1sP[k], donesP[k])
-       flagwin_epoNotadded = False
+        if done and rew1 ==10 and  cum_reward>10 and (flagwin_epoNotadded==True):  # need to check startegy
+           for k in range(len(statesP)):
+              player.store_transition(statesP[k], actionsP[k], ob1sP[k], rew1sP[k], donesP[k])
+           flagwin_epoNotadded = False
 
-    if done and rew1 ==-10 and (flagwin_epoNotadded==False ):  # need to check startegy
-       for k in range(len(statesP)):
-          player.store_transition(statesP[k], actionsP[k], ob1sP[k], rew1sP[k], donesP[k])
-       flagwin_epoNotadded= True
+        if done and rew1 ==-10 and cum_reward>-10 and (flagwin_epoNotadded==False ):  # need to check startegy
+           for k in range(len(statesP)):
+              player.store_transition(statesP[k], actionsP[k], ob1sP[k], rew1sP[k], donesP[k])
+           flagwin_epoNotadded= True
 
     statesP.clear()        
     actionsP.clear() 
