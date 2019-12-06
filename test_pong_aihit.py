@@ -75,6 +75,9 @@ for i in range(0,episodes):
     ball_pre_x=env.ball.x  #add 0612
     cum_reward = 0
     #player.epsilon = 200/(i+200)
+
+    state=player.state # for Prio
+
     while not done:
         # action1 is zero because in this example no agent is playing as player 0
         #action1 = 0
@@ -88,6 +91,14 @@ for i in range(0,episodes):
             action1 = player.get_action()
         ob1, rew1, done, info = env.step(action1)
         cum_reward += rew1  #add 0512
+        
+        #for Priority memory start
+        statesP.append(state)        
+        actionsP.append(action1)
+        ob1sP.append(ob1) 
+        rew1sP.append(rew1)
+        donesP.append(done)
+        # for priority memory end
 
         if rew1 != 10 and rew1 != -10:
             #print(env.ball.y, env.player1.y)
@@ -96,14 +107,16 @@ for i in range(0,episodes):
             #if curPlayer == env.player2:
             #    sleep(1)
             if env.ball.y < curPlayer.y + 14 and env.ball.y > curPlayer.y - 14 and abs(env.ball.x - curPlayer.x) < 10:
-                if curPlayer.x <=10 and (env.ball.x> ball_pre_x):  # add 0612
+                if curPlayer.x <=10 and (env.ball.x>= ball_pre_x):  # add 0612
                    rew1 = ballhitreward 
-                if curPlayer.x >=120 and (env.ball.x< ball_pre_x):   
+                if curPlayer.x >=120 and (env.ball.x<= ball_pre_x):   
                    rew1 = ballhitreward
                 #print(rew1)
-        player.store_transition(player.state, action1, ob1, rew1, done)
+        #player.store_transition(player.state, action1, ob1, rew1, done)  #  mod for Priority memory
         player.state = ob1
+        state=ob1  # for priority memory
         ball_pre_x=env.ball.x #add 0612
+
         rewards.append(rew1)
         if args.housekeeping:
             states.append(ob1)
@@ -146,7 +159,36 @@ for i in range(0,episodes):
     #if i % 4 == 0:
     #    player.update_network()            
         #player.target_net.load_state_dict(player.policy_net.state_dict())
+
+    # for priority memory
+
+
+    print("rew1, cum_reward:", rew1,cum_reward)
+    
+    
+    if done and rew1 ==10 and flagwin_epoNotadded:  # need to check startegy
+       for k in range(len(statesP)):
+          player.store_transition(statesP[k], actionsP[k], ob1sP[k], rew1sP[k], donesP[k])
+       flagwin_epoNotadded = False
+
+    if done and rew1 ==-10 and (flagwin_epoNotadded==False ):  # need to check startegy
+       for k in range(len(statesP)):
+          player.store_transition(statesP[k], actionsP[k], ob1sP[k], rew1sP[k], donesP[k])
+       flagwin_epoNotadded= True
+
+    statesP.clear()        
+    actionsP.clear() 
+    ob1sP.clear() 
+    rew1sP.clear() 
+    donesP.clear()         
+        
+
+
+
+    # for Priority memory save end
       
+
+
     if i % 300:
         #plt.plot(cumulative_rewards)
 
