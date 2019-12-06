@@ -94,9 +94,9 @@ class Agent(object):
         self.epsilon = 1.0  # may need to change
         self.n_actions = 3 #maybe change to env size
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=0.00025)
-        self.memory = ReplayMemory(100000) #org correct one
+        #self.memory = ReplayMemory(100000) #org correct one
         #self.memory = ReplayMemory(10000) #0612
-        #self.memory = ReplayMemory(5000) # 0512 testing
+        self.memory = ReplayMemory(5000) # 0612 training 9:42
         self.batch_size = 32 
         self.gamma = 0.99
         self.prev_obs = None  # hua
@@ -218,8 +218,7 @@ class Agent(object):
         print("Loading model from file ", modelfile)
         self.policy_net.load_state_dict(torch.load(modelfile, map_location=lambda storage, loc: storage))
         self.target_net.load_state_dict(self.policy_net.state_dict())
-        self.epsilon = 0.1
-        return
+        self.epsilon = 0.9
 
     def preprocess(self, observation):
         observation = observation[::2, ::2].mean(axis=-1)
