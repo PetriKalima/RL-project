@@ -1,7 +1,7 @@
 import numpy as np
 import torch
 import torch.nn as nn
-import torch.optim as optim
+import torch.optim as optim 
 import torch.nn.functional as F
 import collections
 from collections import namedtuple
@@ -84,22 +84,22 @@ class Agent(object):
         self.reset()
         # Set the player id that determines on which side the ai is going to play
         self.player_id = player_id
-        #self.train_device = "cuda" if torch.cuda.is_available() else "cpu"
+        self.train_device = "cuda" if torch.cuda.is_available() else "cpu"
         #self.train_device = "cuda"
-        self.train_device = "cpu"                  
+        #self.train_device = "cpu"                  
         self.name = "DQN.AI"
-        self.policy_net = DQN(state_space, 3).to(self.train_device) #hua
-        #self.target_net = DQN(self.env.observation_space.shape, 3).to(self.train_device)
-        self.target_net = DQN(state_space, 3).to(self.train_device) #hua
-        self.epsilon = 1.0  # may need to change
-        self.n_actions = 3 #maybe change to env size
+        self.policy_net = DQN(state_space, 3).to(self.train_device)
+        self.target_net = DQN(state_space, 3).to(self.train_device)
+        self.epsilon = 1.0 
+        self.n_actions = 3
         self.optimizer = optim.Adam(self.policy_net.parameters(), lr=0.00025)
-        self.memory = ReplayMemory(100000)
-        self.batch_size = 32
+        #self.memory = ReplayMemory(1000000)
+        self.memory = ReplayMemory(5000)
+        self.batch_size = 32 
         self.gamma = 0.99
-        self.prev_obs = None  # hua
-        self.policy_net.eval()    #hua
-        self.state = None  # hua
+        self.prev_obs = None  
+        self.policy_net.eval() 
+        self.state = None 
 
     def reset(self):
         self.state = self.env.reset()
@@ -110,11 +110,11 @@ class Agent(object):
         """
         return self.name
 
-    def replace_targetpolicy(self): #hua
+    def replace_targetpolicy(self):
         
-        self.target_net.load_state_dict(self.policy_net.state_dict()) #hua
+        self.target_net.load_state_dict(self.policy_net.state_dict())
 
-    def get_action(self, ob=None): # ob ?
+    def get_action(self, ob=None):
         """
         Interface function that returns the action that the agent took based
         on the observation ob
@@ -122,79 +122,34 @@ class Agent(object):
         sample = random.random()
         if sample >= self.epsilon:
             with torch.no_grad():
-                #x = self.preprocess(ob).to(self.train_device)
-                #print(self.state.shape)
-                state = self.preprocess(self.state).to(self.train_device)   #hua "Here"
-                #state = torch.from_numpy(np.ascontiguousarray(self.state)).float() #hua
-                #state = state.view(1,self.state.shape[2], self.state.shape[0], self.state.shape[1]) #hua
-                #print("here, state shape:",state.shape)
+                state = self.preprocess(self.state).to(self.train_device)
                 q_values = self.policy_net.forward(state)
-                #print(q_values)
                 action = torch.argmax(q_values).item()
-                #print(action)
                 return action
         else:
             return random.randrange(self.n_actions)
-    '''
-    def store_transitionO(self, state, action, next_state, reward, done):
+           
+    def store_transition(self, state, action, next_state, reward, done):
         action = torch.Tensor([[action]]).long()
         reward = torch.tensor([reward], dtype=torch.float32)
-        next_state = torch.from_numpy(np.ascontiguousarray(next_state)).float()
-        state = torch.from_numpy(np.ascontiguousarray(state)).float()
-        self.memory.push(state, action, next_state, reward, done)
-    '''        
-    def store_transition(self, state, action, next_state, reward, done): #hua !!!
-        action = torch.Tensor([[action]]).long()
-        reward = torch.tensor([reward], dtype=torch.float32)
-        #next_state = torch.from_numpy(next_state).float()
         next_state = self.preprocess(next_state)
-        #state = torch.from_numpy(state).float()
         state = self.preprocess(state)
         self.memory.push(state, action, next_state, reward, done)
 
-    def calculate_loss(self, sample):  # working here now
+    def calculate_loss(self, sample):
         batch = Transition(*zip(*sample))
-        states = torch.stack(batch.state)  #h? todevice?
-        actions = torch.cat(batch.action)
-        rewards = torch.cat(batch.reward)
+        states = torch.stack(batch.state).to(self.train_device)
+        actions = torch.cat(batch.action).to(self.train_device)
+        rewards = torch.cat(batch.reward).to(self.train_device)
         done = torch.ByteTensor(batch.done)
-        next_states = torch.cat(batch.next_state)
+        next_states = torch.cat(batch.next_state).to(self.train_device)
         states = states.squeeze(1)
-        #non_final_mask = 1-torch.tensor(batch.done, dtype=torch.uint8)# need to change to boolean?
-        '''
-        non_final_next_states = [s for nonfinal,s in zip(non_final_mask,
-                                     batch.next_state) if nonfinal > 0]
-        non_final_next_states = torch.stack(non_final_next_states)
-        non_final_next_states = non_final_next_states.view(non_final_next_states.shape[0], 2, 100, 100)
-        state_action_values = self.policy_net(states).gather(1, actions)
-        next_state_values = torch.zeros(self.batch_size)
-        next_state_values[done] = self.target_net(non_final_next_states).max(1)[0].detach()
-        '''
         state_action_values = self.policy_net(states).gather(1, actions.long()).unsqueeze(-1)
         next_state_values = self.target_net(next_states).max(1)[0]
         next_state_values[done] = 0.0
         next_state_values = next_state_values.detach()
         expected_values = next_state_values * self.gamma + rewards
-        return nn.MSELoss()(state_action_values, expected_values)
-    '''    
-    def calculate_lossN(self, sample):  # here now working on
-        batch = Transition(*zip(*sample))
-        states = torch.stack(batch.state)  #h? todevice?
-        actions = torch.cat(batch.action)
-        rewards = torch.cat(batch.reward)
-        non_final_mask = 1-torch.tensor(batch.done, dtype=torch.uint8)# need to change to boolean?
-        non_final_next_states = [s for nonfinal,s in zip(non_final_mask,
-                                     batch.next_state) if nonfinal > 0]
-        non_final_next_states = torch.stack(non_final_next_states)
-        states = states.view(32, 3, 200, 200)
-        non_final_next_states = non_final_next_states.view(non_final_next_states.shape[0], 3, 200, 200)
-        state_action_values = self.policy_net(states).gather(1, actions)
-        next_state_values = torch.zeros(self.batch_size)
-        next_state_values[non_final_mask] = self.target_net(non_final_next_states).max(1)[0].detach()
-        expected_values = next_state_values * self.gamma + rewards
-        #print(rewards, expected_values, state_action_values)
-        return nn.MSELoss()(state_action_values, expected_values)
-    '''
+        return nn.MSELoss()(state_action_values, expected_values)   
 
     def update_network(self):
         if len(self.memory) < self.batch_size:
@@ -202,11 +157,9 @@ class Agent(object):
         self.optimizer.zero_grad()
         sample = self.memory.sample(self.batch_size)
         loss = self.calculate_loss(sample)
-        #if self.epsilon < 0.2:
-        #    print(loss)
         loss.backward()
         for param in self.policy_net.parameters():
-            param.grad.data.clamp_(-1, 1)
+            param.grad.data.clamp_(-0.1, 0.1)
         self.optimizer.step()
 
     def save_model(self):
@@ -217,7 +170,6 @@ class Agent(object):
         self.policy_net.load_state_dict(torch.load(modelfile, map_location=lambda storage, loc: storage))
         self.target_net.load_state_dict(self.policy_net.state_dict())
         self.epsilon = 0.1
-        return
 
     def preprocess(self, observation):
         observation = observation[::2, ::2].mean(axis=-1)

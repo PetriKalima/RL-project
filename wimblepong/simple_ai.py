@@ -36,7 +36,7 @@ class SimpleAi(object):
         # Compute the difference in position and try to minimize it
         y_diff = my_y - ball_y
         p = random.uniform(0, 1)
-        if abs(y_diff) < 2 or p > 0.5:
+        if abs(y_diff) < 2 or p > 0.3:
             action = 0  # Stay
         else:
             if y_diff > 0:
